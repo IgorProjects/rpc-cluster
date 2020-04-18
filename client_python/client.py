@@ -18,7 +18,7 @@ class Application:
         self.stub = None
         self.channel = None
         self.plot_data = []
-        self.is_drew = True
+        self.items_drew = 0
 
         self.app = QApplication(argv)
         main_window = QMainWindow()
@@ -51,18 +51,20 @@ class Application:
         Thread(target=self.read_points, args=(run_message,)).start()
 
     def read_points(self, run_message):
+        draw_thread = Thread()
         for point_batch in self.stub.StartTask(run_message):
             self.plot_data.append(zip(*((point.x, point.y, point.z) for point in point_batch.point)))
-            if self.is_drew:
-                self.is_drew = False
-                Thread(target=self.draw).start()
+            if not draw_thread.is_alive() and self.items_drew < len(self.plot_data):
+                draw_thread = Thread(target=self.draw)
+                draw_thread.start()
 
     def draw(self):
-        for x, y, z in self.plot_data:
+        array_len = len(self.plot_data)
+        for i in range(self.items_drew, array_len):
             self.dynamic_ax.clear()
-            self.dynamic_ax.plot_trisurf(x, y, z, cmap=cm.jet, linewidth=0)
+            self.dynamic_ax.plot_trisurf(*self.plot_data[i], cmap=cm.jet, linewidth=0)
             self.dynamic_ax.figure.canvas.draw()
-        self.is_drew = True
+        self.items_drew = array_len
 
     def suspend_resume_task_handler(self):
         if self.ui.suspend_button.text() != self.ui.suspend_button.SUSPEND_STATE:  # because state is changed
