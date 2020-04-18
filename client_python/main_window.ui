@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>mainWindow</class>
- <widget class="QMainWindow" name="mainWindow">
+ <class>main_window</class>
+ <widget class="QMainWindow" name="main_window">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -13,27 +13,27 @@
   <property name="windowTitle">
    <string>Запуск задачи</string>
   </property>
-  <widget class="QWidget" name="centralwidget">
+  <widget class="QWidget" name="central_widget">
    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,1">
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout_2">
+     <layout class="QVBoxLayout" name="input_panel">
       <item>
-       <layout class="QFormLayout" name="formLayout">
+       <layout class="QFormLayout" name="form_layout">
         <property name="formAlignment">
          <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
         </property>
-        <item row="0" column="0">
-         <widget class="QLabel" name="pathLabel">
+        <item row="2" column="0">
+         <widget class="QLabel" name="path_label">
           <property name="text">
-           <string>Путь на кластере</string>
+           <string>Путь на сервере</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QLineEdit" name="pathEdit"/>
+        <item row="2" column="1">
+         <widget class="QLineEdit" name="path_edit"/>
         </item>
-        <item row="1" column="0">
-         <widget class="QLabel" name="numLabel">
+        <item row="3" column="0">
+         <widget class="QLabel" name="num_label">
           <property name="text">
            <string>Количество параметров</string>
           </property>
@@ -45,7 +45,7 @@
        </layout>
       </item>
       <item>
-       <widget class="ParamTable" name="paramTable">
+       <widget class="ParamTable" name="param_table">
         <property name="horizontalScrollBarPolicy">
          <enum>Qt::ScrollBarAsNeeded</enum>
         </property>
@@ -83,9 +83,9 @@
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <layout class="QHBoxLayout" name="start_button_layout">
         <item>
-         <spacer name="horizontalSpacerRight">
+         <spacer name="start_spacer_right">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -98,14 +98,14 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="runButton">
+         <widget class="QPushButton" name="start_button">
           <property name="text">
            <string>Запустить</string>
           </property>
          </widget>
         </item>
         <item>
-         <spacer name="horizontalSpacerLeft">
+         <spacer name="start_spacer_left">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -122,12 +122,12 @@
      </layout>
     </item>
     <item>
-     <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0,0">
+     <layout class="QVBoxLayout" name="plot_layout" stretch="1,0,0">
       <item>
-       <layout class="QVBoxLayout" name="plotContainer"/>
+       <layout class="QVBoxLayout" name="plot_container"/>
       </item>
       <item>
-       <widget class="QSlider" name="horizontalSlider">
+       <widget class="QSlider" name="plot_slider">
         <property name="enabled">
          <bool>false</bool>
         </property>
@@ -137,9 +137,9 @@
        </widget>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout" stretch="2,1,1,1,2">
+       <layout class="QHBoxLayout" name="plot_buttons_layout" stretch="2,1,1,1,2">
         <item>
-         <spacer name="horizontalSpacer">
+         <spacer name="plot_spacer_left">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -152,7 +152,7 @@
          </spacer>
         </item>
         <item>
-         <widget class="QPushButton" name="readButton">
+         <widget class="QPushButton" name="read_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
@@ -162,27 +162,27 @@
          </widget>
         </item>
         <item>
-         <widget class="PauseButton" name="pauseButton">
+         <widget class="SuspendButton" name="suspend_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Пауза</string>
+           <string>Приостановить</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="stopButton">
+         <widget class="QPushButton" name="terminate_button">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Стоп</string>
+           <string>Прервать</string>
           </property>
          </widget>
         </item>
         <item>
-         <spacer name="horizontalSpacer_2">
+         <spacer name="plot_spacer_right">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
           </property>
@@ -211,9 +211,9 @@
    </slots>
   </customwidget>
   <customwidget>
-   <class>PauseButton</class>
+   <class>SuspendButton</class>
    <extends>QPushButton</extends>
-   <header>pause_button.h</header>
+   <header>suspend_button.h</header>
    <slots>
     <slot>switchState()</slot>
     <slot>setDefaultState()</slot>
@@ -223,9 +223,9 @@
  <resources/>
  <connections>
   <connection>
-   <sender>paramCount</sender>
+   <sender>param_count</sender>
    <signal>valueChanged(int)</signal>
-   <receiver>paramTable</receiver>
+   <receiver>param_table</receiver>
    <slot>updateParams(int)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -239,9 +239,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>runButton</sender>
+   <sender>start_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>horizontalSlider</receiver>
+   <receiver>plot_slider</receiver>
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -255,9 +255,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>runButton</sender>
+   <sender>start_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>readButton</receiver>
+   <receiver>read_button</receiver>
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -271,9 +271,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>runButton</sender>
+   <sender>start_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>pauseButton</receiver>
+   <receiver>suspend_button</receiver>
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -287,9 +287,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>runButton</sender>
+   <sender>start_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>stopButton</receiver>
+   <receiver>terminate_button</receiver>
    <slot>setDisabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -303,9 +303,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>stopButton</sender>
+   <sender>terminate_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>readButton</receiver>
+   <receiver>read_button</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -319,9 +319,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>stopButton</sender>
+   <sender>terminate_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>pauseButton</receiver>
+   <receiver>suspend_button</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -335,9 +335,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>stopButton</sender>
+   <sender>terminate_button</sender>
    <signal>clicked(bool)</signal>
-   <receiver>stopButton</receiver>
+   <receiver>terminate_button</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
@@ -351,9 +351,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>pauseButton</sender>
+   <sender>suspend_button</sender>
    <signal>clicked()</signal>
-   <receiver>pauseButton</receiver>
+   <receiver>suspend_button</receiver>
    <slot>switchState()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -367,9 +367,9 @@
    </hints>
   </connection>
   <connection>
-   <sender>stopButton</sender>
+   <sender>terminate_button</sender>
    <signal>clicked()</signal>
-   <receiver>pauseButton</receiver>
+   <receiver>suspend_button</receiver>
    <slot>setDefaultState()</slot>
    <hints>
     <hint type="sourcelabel">
