@@ -14,10 +14,16 @@
 #include <random>
 #include <chrono>
 #include <boost/container/static_vector.hpp>
+#include <thread>
 
 namespace mpi = boost::mpi;
 namespace ublas = boost::numeric::ublas;
 
+double fRand(double fMin, double fMax)
+{
+    double f = (double)rand() / RAND_MAX;
+    return fMin + f * (fMax - fMin);
+}
 constexpr int MakeMessageTag(const char* tag)
 {
     auto result = 0, i = 0;
@@ -48,9 +54,24 @@ void Print(const ublas::matrix<double>& matrix)
     }
 }
 
+void GausSeidelIteration(
+    ublas::matrix_range<ublas::matrix<double>> matrix, 
+    size_t i, size_t j, double h, 
+    std::vector<double>& deltas)
+{
+    auto temp = matrix(i, j);
+    matrix(i, j) = (matrix(i - 1, j) + matrix(i + 1, j) +
+        matrix(i, j - 1) + matrix(i, j + 1) - h * h * f(i, j, matrix.size1() - 2)) / 4;
+    auto delta = fabs(temp - matrix(i, j));
+    if (deltas[i - 1] < delta)
+    {
+        deltas[i - 1] = delta;
+    }
+}
+
 double GaussSeidel(ublas::matrix_range<ublas::matrix<double>> matrix, double h)
 {
-    const auto maxWaveSize = std::min(matrix.size1(), matrix.size2()) - 2;
+    const auto maxWaveSize = matrix.size1() - 2;
     std::vector<double> deltas(maxWaveSize);
     for (auto waveSize = 1; waveSize < maxWaveSize + 1; ++waveSize) 
     {
@@ -58,83 +79,25 @@ double GaussSeidel(ublas::matrix_range<ublas::matrix<double>> matrix, double h)
         for (int i = 1; i < waveSize + 1; ++i) 
         {
             auto j = waveSize + 1 - i;
-            auto temp = matrix(i, j);
-            matrix(i, j) = (matrix(i - 1, j) + matrix(i + 1, j) +
-                matrix(i, j - 1) + matrix(i, j + 1) - h * h * f(i, j, maxWaveSize)) / 4;
-            auto delta = fabs(temp - matrix(i, j));
-            if (deltas[i - 1] < delta)
-            {
-                deltas[i - 1] = delta;
-            }
+            GausSeidelIteration(matrix, i, j, h, deltas);
         }
     }
-//    for (auto wave = 0; wave < staticWaveNumbers; ++wave)
-//    {
-//#pragma omp parallel for shared(matrix,maxWaveSize,deltas)
-//        for (int i = 1; i < maxWaveSize + 1; ++i)
-//        {
-//            auto j = maxWaveSize + wave + 2 - i;
-//            auto temp = matrix(i, j);
-//            matrix(i, j) = (matrix(i - 1, j) + matrix(i + 1, j) +
-//                matrix(i, j - 1) + matrix(i, j + 1) - h * h * f(i, j, maxWaveSize)) / 4;
-//            auto delta = fabs(temp - matrix(i, j));
-//            if (deltas[i - 1] < delta)
-//            {
-//                deltas[i - 1] = delta;
-//            }
-//        }
-//    }
     for (int waveSize = maxWaveSize - 1; waveSize > 0; --waveSize) 
     {
 #pragma omp parallel for shared(matrix,waveSize,deltas)
-        for (int i = maxWaveSize - waveSize + 1; i < maxWaveSize + 1; i++) {
+        for (int i = maxWaveSize - waveSize + 1; i < maxWaveSize + 1; ++i) 
+        {
             auto j = 2 * maxWaveSize - waveSize - i + 1;
-            auto temp = matrix(i, j);
-            matrix(i, j) = (matrix(i - 1, j) + matrix(i + 1, j) +
-                matrix(i, j - 1) + matrix(i, j + 1) - h * h * f(i, j, maxWaveSize)) / 4;
-            auto delta = fabs(temp - matrix(i, j));
-            if (deltas[i - 1] < delta)
-            {
-                deltas[i - 1] = delta;
-            }
+            GausSeidelIteration(matrix, i, j, h, deltas);
         }
     }
     return *std::max_element(deltas.begin(), deltas.end());
-}
-
-auto GetMatrixBlock(ublas::matrix<double>& matrix, size_t i, size_t j, size_t blockSize)
-{
-    return ublas::subrange(matrix,
-        i * blockSize, (i + 1) * blockSize + 2,
-        j * blockSize, (j + 1) * blockSize + 2);
 }
 
 ublas::vector<double> ReceiveVector(const mpi::communicator& communicator, const int source, const size_t size, const char* tag);
 
 int main(int argc, char* argv[])
 {
-#if 0
-    constexpr auto n = 250;
-    ublas::matrix<double> _matrix{n, n};
-    auto matrix = ublas::subrange(_matrix, 0, n, 0 ,n);
-    for (auto i = 0; i < n; ++i)
-    {
-        for (auto j = 0; j < n; ++j)
-        {
-            matrix(i, j) = u(i, j, n);
-        }
-    }
-    //Print(matrix);
-    double delta = 0;
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    do
-    {
-        delta = GaussSeidel(matrix, 1 / static_cast<double>(n - 1));
-    } while (delta > 0.1);
-    std::cout << (std::chrono::high_resolution_clock::now() - currentTime).count() << std::endl;
-    
-    //Print(matrix);
-#else
     mpi::environment env;
     mpi::communicator world;
     const auto gridSize = world.size() - 1;
@@ -174,11 +137,10 @@ int main(int argc, char* argv[])
                 matrix(i, j) = u(i, j, n);
             }
         }
-        std::cout << "Initial:\n";
-        Print(matrix);
     }
     mpi::broadcast(world, matrix, 0);
     double procDelta = 0, delta = 0;
+    const auto currentTime = std::chrono::high_resolution_clock::now();
     do
     {
         
@@ -199,15 +161,13 @@ int main(int argc, char* argv[])
                 requests.clear();
                 if (i != 0)
                 {
+                    // send old top row
                     requests.push_back(
                         world.isend(world.rank() + 1, MakeMessageTag("orow"), 
                             ublas::vector<double>{ublas::row(currentBlock, 1)}));
+                    // receive top row
                     requests.push_back(
                         world.irecv(world.rank() + 1, MakeMessageTag("nrow"), tempVector1));
-                    //// send old top row
-                    //world.send(world.rank() + 1, MakeMessageTag("orow"), ublas::vector<double>{ublas::row(matrix, 0)});
-                    //// receive top row
-                    //ublas::row(matrix, 0) = ReceiveVector(world, world.rank() + 1, currentBlock.size2(), "nrow");
                 }
                 // receive old bottom row
                 requests.push_back(
@@ -227,12 +187,11 @@ int main(int argc, char* argv[])
                 }
                 if (i != gridSize - 1)
                 {
+                    // send bottom row
                     mpi::request request =
                         world.isend(world.rank() - 1, MakeMessageTag("nrow"),
                             ublas::vector<double>{ublas::row(currentBlock, currentBlock.size1() - 2)});
                     request.wait();
-                    //// send bottom row
-                    //SendRow(world, matrix, i, j, blockSize);
                 }
             }
             // angle
@@ -244,15 +203,13 @@ int main(int argc, char* argv[])
                 requests.clear();
                 if (i != 0)
                 {
+                    // send old top row
                     requests.push_back(
                         world.isend(world.rank() + 1, MakeMessageTag("orow"),
                             ublas::vector<double>{ublas::row(currentBlockRow, 1)}));
+                    // receive top row
                     requests.push_back(
                         world.irecv(world.rank() + 1, MakeMessageTag("nrow"), tempVector1));
-                    // send old top row
-
-                    // receive top row
-                    //ReceiveRow(world, matrix, i, j, blockSize);
                 }
                 if (j != gridSize - 1)
                 {
@@ -282,31 +239,28 @@ int main(int argc, char* argv[])
                 }
                 if (j != gridSize - 1)
                 {
+                    // send right column
                     mpi::request request =
                         world.isend(world.rank() + 1, MakeMessageTag("ncol"),
                             ublas::vector<double>{ublas::column(currentBlockColumn, blockSize - 2)});
                     request.wait();
-                    //// send right column
-                    //SendColumn(world, matrix, i, j, blockSize, lastBlockSize);
                 }
                 ++i;
             }
             // column
-            // currentBlock = GetMatrixBlock(matrix, i, j, gridSize, blockSize, lastBlockSize);
             for (; i < gridSize; ++i)
             {
                 auto currentBlock = ublas::subrange(matrix,
                         i * blockSize + 1, (i + 1) * blockSize + 1,
                         j * blockSize, (j + 1) * blockSize + 2);
                 requests.clear();
+                // send old left column
                 requests.push_back(
                     world.isend(world.rank() - 1, MakeMessageTag("ocol"),
                         ublas::vector<double>{ublas::column(currentBlock, 1)}));
+                // receive left column
                 requests.push_back(
                     world.irecv(world.rank() - 1, MakeMessageTag("ncol"), tempVector1));
-                //// send old left column
-                //// receive left column
-                //ReceiveColumn(world, matrix, i, j, blockSize, lastBlockSize);
                 if (j != gridSize - 1)
                 {
                     // receive old right column
@@ -329,19 +283,18 @@ int main(int argc, char* argv[])
                 }
                 if (j != gridSize - 1)
                 {
+                    // send right column
                     mpi::request request =
                         world.isend(world.rank() + 1, MakeMessageTag("ncol"),
                             ublas::vector<double>{ublas::column(currentBlock, currentBlock.size1() - 2)});
                     request.wait();
-                    // send right column
-                    // SendColumn(world, matrix, i, j, blockSize, lastBlockSize);
                 }
                 
             }
         }
         mpi::all_reduce(world, procDelta, delta, mpi::maximum<double>());
     } while (delta > eps);
-
+    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - currentTime).count() << std::endl;
     if (world.rank() != 0)
     {
         mpi::gather(world, matrix, 0);
@@ -377,11 +330,8 @@ int main(int argc, char* argv[])
                         j * blockSize, (j + 1) * blockSize);
             }
         }
-        std::cout << "Result:\n";
         Print(matrix);
     }
-#endif
-
     return 0;
 }
 
